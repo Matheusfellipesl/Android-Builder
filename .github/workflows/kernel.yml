@@ -69,7 +69,6 @@ jobs:
         with:
           swap-size-gb: 10
 
-      # This action checks-out your CONFIGSitory under $GITHUB_WORKSPACE, so your workflow can access it.
       - name: 😄 Checkout
         uses: actions/checkout@v4
 
@@ -85,6 +84,7 @@ jobs:
           git clone https://gitlab.com/simonpunk/susfs4ksu.git
           cd susfs4ksu
 
+      # Apply SUSFS kernel patches
       - name: 💫 Apply SUSFS kernel patches
         run: |
           cd ${{ github.workspace }}/$KERNEL_NAME
@@ -112,12 +112,19 @@ jobs:
         run: |
           make O=${{ env.OUT_DIR }} ARCH=arm64 -j$(nproc)
 
+      # Check if Image exists in the output directory
+      - name: 📂 Check if Image exists
+        run: |
+          echo "Checking if Image exists in the output directory"
+          ls -la ${{ env.OUT_DIR }}/arch/arm64/boot/
+
       # Build and install ksu_susfs tool
       - name: 🛠️ Build ksu_susfs tool
         run: |
           cd ${{ github.workspace }}/susfs4ksu
           ./build_ksu_susfs_tool.sh
 
+      # Upload kernel Image
       - name: 💾 Upload Image
         uses: actions/upload-artifact@v3
         with:
@@ -126,4 +133,28 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # Additional steps for other outputs like Image.gz, dtb, etc.
+      # Upload Image.gz (if exists)
+      - name: 💙 Upload Image.gz
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}-Image.gz
+          path: ${{ env.OUT_DIR }}/arch/arm64/boot/Image.gz
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Upload dtb (if exists)
+      - name: 💜 Upload dtb
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}-dtb
+          path: ${{ env.OUT_DIR }}/arch/arm64/boot/dtb
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Upload output directory
+      - name: ☢️ Upload output directory
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.KERNEL_NAME }}-${{ env.BUILD_DATE }}-Output
+          path: ${{ env.OUT_DIR }}/arch/arm64/boot/
+          retention-days: 7
