@@ -41,29 +41,19 @@ jobs:
       matrix:
         CONFIG: ${{ fromJSON(needs.Read-configuration.outputs.CONFIGS) }}
     env:
-      # Basic configuration
       WORKSPACE: ${{ github.workspace }}
       BUILD_DATE: "${{ needs.Read-configuration.outputs.BUILD_DATE }}"
-
-      # Kernel source configuration (Update to Pixel 4 kernel repo)
       KERNEL_NAME: ${{ matrix.CONFIG.kernelSource.name }}
-      KERNEL_REPO: "https://github.com/msnx/KernelSU-Pixel4XL"  # Update to your kernel repo
-      KERNEL_BRANCH: "master"  # Adjust if you use a different branch
-      KERNEL_DEVICE: "Pixel 4 XL"  # Your device name
-      KERNEL_DEFCONFIG_PATH: "arch/arm64/configs/pixel4xl_defconfig"  # Path to your defconfig file
-
-      # Enable SUSFS and KernelSU
+      KERNEL_REPO: "https://github.com/msnx/KernelSU-Pixel4XL"
+      KERNEL_BRANCH: "master"
+      KERNEL_DEVICE: "Pixel 4 XL"
+      KERNEL_DEFCONFIG_PATH: "arch/arm64/configs/pixel4xl_defconfig"
       ENABLE_KERNELSU: true
-      ENABLE_SUSFS: true  # Enabling SUSFS support
-
-      # Whether to use ccache to speed up compilation
+      ENABLE_SUSFS: true
       ENABLE_CCACHE: ${{ matrix.CONFIG.enableCcache }}
-
-      # Set output & ccache directory
       OUT_DIR: "${{ github.workspace }}/out"
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:
-      # Set swap space
       - name: 📐 Set swap to 10G
         uses: pierotofy/set-swap-space@master
         with:
@@ -72,23 +62,19 @@ jobs:
       - name: 😄 Checkout
         uses: actions/checkout@v4
 
-      # Install prerequisites for Ubuntu
       - name: ⭐ Install prerequisites
         run: |
           sudo apt-get update
           sudo apt-get install -y curl git wget libarchive-tools ccache python3
 
-      # Clone the SUSFS repository and apply patches
       - name: 🌟 Clone SUSFS repository
         run: |
           git clone https://gitlab.com/simonpunk/susfs4ksu.git
           cd susfs4ksu
 
-      # Apply SUSFS kernel patches
       - name: 💫 Apply SUSFS kernel patches
         run: |
           cd ${{ github.workspace }}/$KERNEL_NAME
-          # Apply the patches required for SUSFS
           cp ${{ github.workspace }}/susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch $KERNEL_ROOT/KernelSU/
           cp ${{ github.workspace }}/susfs4ksu/kernel_patches/50_add_susfs_in_kernel.patch $KERNEL_ROOT/
           cp -r ${{ github.workspace }}/susfs4ksu/kernel_patches/fs/* $KERNEL_ROOT/fs/
@@ -96,35 +82,29 @@ jobs:
           cd $KERNEL_ROOT/KernelSU && patch -p1 < 10_enable_susfs_for_ksu.patch
           cd $KERNEL_ROOT && patch -p1 < 50_add_susfs_in_kernel.patch
 
-      # Enable SUSFS and KSU features in the kernel
       - name: ⚙️ Enable SUSFS and KSU features
         run: |
           cd ${{ github.workspace }}/$KERNEL_NAME
-          # Ensure SUSFS and KernelSU options are enabled
           echo "CONFIG_KSU=y" >> .config
           echo "CONFIG_KSU_SUSFS=y" >> .config
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> .config
           make oldconfig
 
-      # Build the kernel
       - name: 👍 Start building the kernel
         working-directory: ${{ env.KERNEL_NAME }}
         run: |
           make O=${{ env.OUT_DIR }} ARCH=arm64 -j$(nproc)
 
-      # Check if Image exists in the output directory
       - name: 📂 Check if Image exists
         run: |
           echo "Checking if Image exists in the output directory"
           ls -la ${{ env.OUT_DIR }}/arch/arm64/boot/
 
-      # Build and install ksu_susfs tool
       - name: 🛠️ Build ksu_susfs tool
         run: |
           cd ${{ github.workspace }}/susfs4ksu
           ./build_ksu_susfs_tool.sh
 
-      # Upload kernel Image
       - name: 💾 Upload Image
         uses: actions/upload-artifact@v3
         with:
@@ -133,7 +113,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # Upload Image.gz (if exists)
       - name: 💙 Upload Image.gz
         uses: actions/upload-artifact@v3
         with:
@@ -142,7 +121,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # Upload dtb (if exists)
       - name: 💜 Upload dtb
         uses: actions/upload-artifact@v3
         with:
@@ -151,7 +129,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # Upload output directory
       - name: ☢️ Upload output directory
         uses: actions/upload-artifact@v3
         with:
